@@ -1,70 +1,103 @@
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 import logging
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
-ADMIN_ID = 7465925576
+BOT_TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
 
-# Логгирование
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Автоответное сообщение
-AUTO_REPLY = (
-    "🚗 *Трезвый водитель Дубай*\n\n"
-    "📍 Отправьте геолокацию для заказа.\n"
-    "📞 Позвонить: +971582615619\n"
-    "💬 WhatsApp: https://wa.me/971582615619\n"
-)
+# 🧠 Память пользователей (user_id: lang)
+user_languages = {}
 
-# Приветствие
+# 📌 Языковые шаблоны
+MESSAGES = {
+    "ru": {
+        "start": "👋 Добро пожаловать в сервис 'Трезвый водитель Дубай'!\n\nВыберите действие:",
+        "help": "ℹ️ Это справка. Чтобы заказать водителя, нажмите /order.",
+        "order": "🚗 Чтобы заказать водителя, нажмите кнопку 'Сделать заказ'.",
+        "info": "ℹ️ Мы предоставляем услуги трезвого водителя в Дубае 24/7.",
+        "contact": "📞 Наш номер: +971582615619\n📱 WhatsApp: https://wa.me/971582615619",
+        "lang_set": "🇷🇺 Язык установлен на русский."
+    },
+    "en": {
+        "start": "👋 Welcome to 'Sober Driver Dubai' service!\n\nPlease choose an option:",
+        "help": "ℹ️ This is help. To order a driver, use /order.",
+        "order": "🚗 To order a driver, press 'Make an order' button.",
+        "info": "ℹ️ We provide sober driver services in Dubai 24/7.",
+        "contact": "📞 Our number: +971582615619\n📱 WhatsApp: https://wa.me/971582615619",
+        "lang_set": "🇬🇧 Language set to English."
+    }
+}
+
+def get_lang(update: Update) -> str:
+    user_id = update.effective_user.id
+    return user_languages.get(user_id, "ru" if update.effective_user.language_code == "ru" else "en")
+
+def main_menu_keyboard(lang: str):
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("📍 Поделиться локацией", request_location=True)],
+        [KeyboardButton("📞 Позвонить"), KeyboardButton("💬 WhatsApp")],
+    ], resize_keyboard=True)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [KeyboardButton("📍 Отправить геолокацию", request_location=True)],
-        [KeyboardButton("📞 Позвонить"), KeyboardButton("💬 WhatsApp")]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text(AUTO_REPLY, reply_markup=reply_markup, parse_mode="Markdown")
+    lang = get_lang(update)
+    await update.message.reply_text(
+        MESSAGES[lang]["start"],
+        reply_markup=main_menu_keyboard(lang)
+    )
 
-# Обработка геолокации
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = get_lang(update)
+    await update.message.reply_text(MESSAGES[lang]["help"])
+
+async def order_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = get_lang(update)
+    await update.message.reply_text(MESSAGES[lang]["order"])
+
+async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = get_lang(update)
+    await update.message.reply_text(MESSAGES[lang]["info"])
+
+async def contact_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = get_lang(update)
+    await update.message.reply_text(MESSAGES[lang]["contact"])
+
+# 🔁 Установка языка вручную
+async def set_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_languages[update.effective_user.id] = "ru"
+    await update.message.reply_text(MESSAGES["ru"]["lang_set"])
+
+async def set_en(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_languages[update.effective_user.id] = "en"
+    await update.message.reply_text(MESSAGES["en"]["lang_set"])
+
 async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     location = update.message.location
     lat, lon = location.latitude, location.longitude
-    user = update.message.from_user
+    maps_url = f"https://www.google.com/maps?q={lat},{lon}"
+    await update.message.reply_text(f"📍 Спасибо! Ваша локация:\n{maps_url}")
 
-    map_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if "Позвонить" in text or "Call" in text:
+        await update.message.reply_text("📞 +971582615619")
+    elif "WhatsApp" in text:
+        await update.message.reply_text("💬 https://wa.me/971582615619")
 
-    # Сообщение пользователю
-    await update.message.reply_text("✅ Заказ получен! Мы скоро свяжемся с вами.")
-    
-    # Сообщение администратору
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=(
-            f"📥 Новый заказ от @{user.username or user.first_name} (ID: {user.id})\n"
-            f"🌍 Локация: {map_url}"
-        )
-    )
-
-# Кнопка звонка и WhatsApp
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.lower()
-    if "позвонить" in text:
-        await update.message.reply_text("📞 Звонок: +971582615619")
-    elif "whatsapp" in text:
-        await update.message.reply_text("💬 WhatsApp: https://wa.me/971582615619")
-
-# Основной запуск
-def main():
-    app = Application.builder().token(TOKEN).build()
+if __name__ == '__main__':
+    app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("order", order_command))
+    app.add_handler(CommandHandler("info", info_command))
+    app.add_handler(CommandHandler("contact", contact_command))
+    app.add_handler(CommandHandler("ru", set_ru))
+    app.add_handler(CommandHandler("en", set_en))
+
     app.add_handler(MessageHandler(filters.LOCATION, location_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, button_handler))
 
-    print("🤖 Бот запущен...")
+    print("🤖 Бот запущен с выбором языка!")
     app.run_polling()
-
-if __name__ == "__main__":
-    main()
