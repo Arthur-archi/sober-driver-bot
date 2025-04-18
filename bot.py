@@ -1,96 +1,59 @@
 import logging
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, CallbackContext
 import asyncio
-import os
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# === НАСТРОЙКИ ===
 BOT_TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
-ADMIN_CHAT_ID = 7465925576
-PHONE_NUMBER = "+971582615619"
-WHATSAPP_LINK = "https://wa.me/971582615619"
+ADMIN_ID = 7465925576
 
-# === ЛОГГИРОВАНИЕ ===
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-# === ЯЗЫКОВЫЕ ТЕКСТЫ ===
-TEXTS = {
-    "ru": {
-        "start": "🚗 Добро пожаловать в сервис *Трезвый водитель Дубай*!\n\n📍 Мы доставим вас и ваш автомобиль в любую точку Дубая.\n\nВыберите действие ниже 👇",
-        "location_button": "📍 Отправить локацию",
-        "call_button": "📞 Позвонить",
-        "whatsapp_button": "💬 WhatsApp",
-        "confirm": "✅ Спасибо! Мы получили ваш заказ. Водитель скоро свяжется с вами.",
-        "admin_msg": "📥 Новый заказ:\nИмя: {name}\nUsername: @{username}\nЛокация: https://maps.google.com/?q={lat},{lon}",
-    },
-    "en": {
-        "start": "🚗 Welcome to *Sober Driver Dubai*!\n\n📍 We will drive you and your car anywhere in Dubai.\n\nChoose an action below 👇",
-        "location_button": "📍 Send Location",
-        "call_button": "📞 Call",
-        "whatsapp_button": "💬 WhatsApp",
-        "confirm": "✅ Thank you! We received your order. The driver will contact you soon.",
-        "admin_msg": "📥 New order:\nName: {name}\nUsername: @{username}\nLocation: https://maps.google.com/?q={lat},{lon}",
-    }
-}
-
-# === ОПРЕДЕЛЕНИЕ ЯЗЫКА ===
-def get_lang(update: Update) -> str:
-    user_lang = update.effective_user.language_code
-    return "ru" if user_lang == "ru" else "en"
-
-# === СТАРТ ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = get_lang(update)
-    t = TEXTS[lang]
+    lang = update.effective_user.language_code
+    user_id = update.effective_user.id
 
-    keyboard = [
-        [KeyboardButton(t["location_button"], request_location=True)],
-        [KeyboardButton(t["call_button"]), KeyboardButton(t["whatsapp_button"])]
+    ru_buttons = [
+        [KeyboardButton("📍 Отправить геолокацию", request_location=True)],
+        [KeyboardButton("📞 Позвонить"), KeyboardButton("💬 WhatsApp")],
+        [KeyboardButton("🚗 Сделать заказ")]
     ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    en_buttons = [
+        [KeyboardButton("📍 Send location", request_location=True)],
+        [KeyboardButton("📞 Call"), KeyboardButton("💬 WhatsApp")],
+        [KeyboardButton("🚗 Make an order")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(ru_buttons if lang == "ru" else en_buttons, resize_keyboard=True)
 
-    await update.message.reply_text(t["start"], reply_markup=reply_markup, parse_mode="Markdown")
+    text = "Привет! Я бот сервиса 'Трезвый водитель' в Дубае.\nВыберите действие ниже 👇" if lang == "ru" else \
+           "Hi! I'm the 'Sober Driver' service bot in Dubai.\nPlease choose an action below 👇"
 
-# === ОБРАБОТКА ЛОКАЦИИ ===
-async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = get_lang(update)
-    t = TEXTS[lang]
+    await update.message.reply_text(text, reply_markup=reply_markup)
 
-    location = update.message.location
-    user = update.message.from_user
-
-    admin_message = t["admin_msg"].format(
-        name=user.full_name,
-        username=user.username or "без username",
-        lat=location.latitude,
-        lon=location.longitude,
-    )
-
-    await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_message)
-    await update.message.reply_text(t["confirm"], reply_markup=ReplyKeyboardRemove())
-
-# === ОБРАБОТКА КНОПОК ===
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = get_lang(update)
-    t = TEXTS[lang]
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    user = update.effective_user
+    lang = user.language_code
 
-    if t["call_button"] in text:
-        await update.message.reply_text(f"📞 Позвонить: {PHONE_NUMBER}")
-    elif t["whatsapp_button"] in text:
-        await update.message.reply_text(f"💬 WhatsApp: {WHATSAPP_LINK}")
+    if text in ["📍 Отправить геолокацию", "📍 Send location"]:
+        await update.message.reply_text("Пожалуйста, отправьте свою геолокацию 📍" if lang == "ru" else "Please send your location 📍")
+
+    elif text in ["📞 Позвонить", "📞 Call"]:
+        await update.message.reply_text("Позвоните нам: 📞 +971 58 261 5619")
+
+    elif text in ["💬 WhatsApp"]:
+        await update.message.reply_text("Напишите нам в WhatsApp:\nhttps://wa.me/971582615619")
+
+    elif text in ["🚗 Сделать заказ", "🚗 Make an order"]:
+        await update.message.reply_text("Ваш заказ принят! Мы свяжемся с вами в ближайшее время. ✅" if lang == "ru" else "Your request has been received! We’ll contact you shortly. ✅")
+        await context.bot.send_message(chat_id=ADMIN_ID, text=f"📥 Новый заказ от пользователя @{user.username} (ID: {user.id})")
+
     else:
-        await start(update, context)
+        await update.message.reply_text("Я вас не понял. Пожалуйста, выберите кнопку ниже." if lang == "ru" else "I didn’t understand. Please use the buttons below.")
 
-# === ОСНОВНАЯ ФУНКЦИЯ ===
 async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-
+    app.add_handler(MessageHandler(filters.TEXT, handle_message))
     await app.run_polling()
 
 if __name__ == "__main__":
