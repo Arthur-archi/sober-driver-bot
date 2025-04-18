@@ -1,61 +1,70 @@
 import logging
-import asyncio
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-BOT_TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
+TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
 ADMIN_ID = 7465925576
 
-logging.basicConfig(level=logging.INFO)
+# Логгирование
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
+# Автоответное сообщение
+AUTO_REPLY = (
+    "🚗 *Трезвый водитель Дубай*\n\n"
+    "📍 Отправьте геолокацию для заказа.\n"
+    "📞 Позвонить: +971582615619\n"
+    "💬 WhatsApp: https://wa.me/971582615619\n"
+)
+
+# Приветствие
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = update.effective_user.language_code
-    user_id = update.effective_user.id
-
-    ru_buttons = [
+    keyboard = [
         [KeyboardButton("📍 Отправить геолокацию", request_location=True)],
-        [KeyboardButton("📞 Позвонить"), KeyboardButton("💬 WhatsApp")],
-        [KeyboardButton("🚗 Сделать заказ")]
+        [KeyboardButton("📞 Позвонить"), KeyboardButton("💬 WhatsApp")]
     ]
-    en_buttons = [
-        [KeyboardButton("📍 Send location", request_location=True)],
-        [KeyboardButton("📞 Call"), KeyboardButton("💬 WhatsApp")],
-        [KeyboardButton("🚗 Make an order")]
-    ]
-    reply_markup = ReplyKeyboardMarkup(ru_buttons if lang == "ru" else en_buttons, resize_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text(AUTO_REPLY, reply_markup=reply_markup, parse_mode="Markdown")
 
-    text = "Привет! Я бот сервиса 'Трезвый водитель' в Дубае.\nВыберите действие ниже 👇" if lang == "ru" else \
-           "Hi! I'm the 'Sober Driver' service bot in Dubai.\nPlease choose an action below 👇"
+# Обработка геолокации
+async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    location = update.message.location
+    lat, lon = location.latitude, location.longitude
+    user = update.message.from_user
 
-    await update.message.reply_text(text, reply_markup=reply_markup)
+    map_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    user = update.effective_user
-    lang = user.language_code
+    # Сообщение пользователю
+    await update.message.reply_text("✅ Заказ получен! Мы скоро свяжемся с вами.")
+    
+    # Сообщение администратору
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=(
+            f"📥 Новый заказ от @{user.username or user.first_name} (ID: {user.id})\n"
+            f"🌍 Локация: {map_url}"
+        )
+    )
 
-    if text in ["📍 Отправить геолокацию", "📍 Send location"]:
-        await update.message.reply_text("Пожалуйста, отправьте свою геолокацию 📍" if lang == "ru" else "Please send your location 📍")
+# Кнопка звонка и WhatsApp
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.lower()
+    if "позвонить" in text:
+        await update.message.reply_text("📞 Звонок: +971582615619")
+    elif "whatsapp" in text:
+        await update.message.reply_text("💬 WhatsApp: https://wa.me/971582615619")
 
-    elif text in ["📞 Позвонить", "📞 Call"]:
-        await update.message.reply_text("Позвоните нам: 📞 +971 58 261 5619")
+# Основной запуск
+def main():
+    app = Application.builder().token(TOKEN).build()
 
-    elif text in ["💬 WhatsApp"]:
-        await update.message.reply_text("Напишите нам в WhatsApp:\nhttps://wa.me/971582615619")
-
-    elif text in ["🚗 Сделать заказ", "🚗 Make an order"]:
-        await update.message.reply_text("Ваш заказ принят! Мы свяжемся с вами в ближайшее время. ✅" if lang == "ru" else "Your request has been received! We’ll contact you shortly. ✅")
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"📥 Новый заказ от пользователя @{user.username} (ID: {user.id})")
-
-    else:
-        await update.message.reply_text("Я вас не понял. Пожалуйста, выберите кнопку ниже." if lang == "ru" else "I didn’t understand. Please use the buttons below.")
-
-async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))
-    await app.run_polling()
+    app.add_handler(MessageHandler(filters.LOCATION, location_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+
+    print("🤖 Бот запущен...")
+    app.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
-
+    main()
