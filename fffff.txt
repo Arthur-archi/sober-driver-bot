@@ -1,0 +1,2 @@
+cd Desktop\SoberDriverBot
+python bot.py
