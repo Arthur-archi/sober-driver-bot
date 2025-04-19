@@ -1,75 +1,38 @@
 from flask import Flask, request
 import requests
-import os
 
 app = Flask(__name__)
 
-# === НАСТРОЙКИ ===
-TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}"
-WEBHOOK_URL = "https://sober-driver-dubai.up.railway.app/webhook"
-
-# === ГЛАВНАЯ СТРАНИЦА ===
-@app.route('/')
-def home():
-    return 'Бот "Трезвый водитель Дубай" работает!'
+BOT_TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+WEBHOOK_URL = "https://sober-driver-dubai.up.railway.app"
 
 # === УСТАНОВКА ВЕБХУКА ===
-@app.route('/set_webhook')
+@app.route("/set_webhook")
 def set_webhook():
-    webhook_url = f"{TELEGRAM_API_URL}/setWebhook?url={WEBHOOK_URL}"
-    response = requests.get(webhook_url)
+    url = f"{TELEGRAM_API_URL}/setWebhook"
+    data = {"url": f"{WEBHOOK_URL}/webhook"}
+    response = requests.post(url, json=data)
     return response.json()
 
-# === ОБРАБОТКА ВЕБХУКА ===
-@app.route('/webhook', methods=['POST'])
+# === ОБРАБОТЧИК ВЕБХУКА ===
+@app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
 
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         text = data["message"].get("text", "")
+        send_message(chat_id, f"Вы написали: {text}")
+    
+    return {"ok": True}
 
-        if text == "/start":
-            send_welcome(chat_id)
-        else:
-            send_message(chat_id, "Спасибо! Мы получили ваше сообщение.")
-
-    return "ok", 200
-
-# === ФУНКЦИИ ОТПРАВКИ ===
-def send_message(chat_id, text, reply_markup=None):
+# === ОТПРАВКА СООБЩЕНИЯ ===
+def send_message(chat_id, text):
     url = f"{TELEGRAM_API_URL}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "reply_markup": reply_markup,
-        "parse_mode": "HTML"
-    }
+    payload = {"chat_id": chat_id, "text": text}
     requests.post(url, json=payload)
 
-def send_welcome(chat_id):
-    text = (
-        "🚖 <b>Трезвый водитель Дубай</b>\n\n"
-        "Добро пожаловать! Мы оперативно доставим вас и ваше авто домой.\n\n"
-        "📍 Отправьте геолокацию\n"
-        "📞 Позвоните: +971582615619\n"
-        "💬 Или напишите в WhatsApp"
-    )
-
-    keyboard = {
-        "keyboard": [
-            [{"text": "📍 Отправить геолокацию", "request_location": True}],
-            [{"text": "📞 Позвонить", "url": "tel:+971582615619"}],
-            [{"text": "💬 WhatsApp", "url": "https://wa.me/971582615619"}]
-        ],
-        "resize_keyboard": True,
-        "one_time_keyboard": True
-    }
-
-    send_message(chat_id, text, reply_markup=keyboard)
-
-# === ЗАПУСК СЕРВЕРА ===
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+# === СТАРТ СЕРВЕРА ===
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
