@@ -5,23 +5,21 @@ import json
 
 TOKEN = '8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA'
 BOT_URL = f'https://api.telegram.org/bot{TOKEN}'
-ADMIN_CHAT_ID = '7465925576'  # Твой Telegram ID
+ADMIN_CHAT_ID = '7465925576'
 
 app = Flask(__name__)
 
-# Шаблоны сообщений
 messages = {
     "ru": {
         "welcome": "👋 Добро пожаловать в сервис «Трезвый водитель Дубай»!\n\n📍 Мы доставим вас и ваш автомобиль в любую точку Дубая.\n\n🧭 Нажмите кнопку ниже, чтобы поделиться геолокацией или связаться с нами.\n\n❓ Если что-то непонятно — напишите администратору:\n@Arthur_01",
-        "choose_lang": "Выберите язык / Choose your language:",
+        "choose_lang": "Выберите язык / Choose your language:"
     },
     "en": {
         "welcome": "👋 Welcome to the 'Sober Driver Dubai' service!\n\n📍 We will drive you and your car anywhere in Dubai.\n\n🧭 Press the button below to share your location or contact us.\n\n❓ If you have any questions — contact admin:\n@Arthur_01",
-        "choose_lang": "Choose your language / Выберите язык:",
+        "choose_lang": "Choose your language / Выберите язык:"
     }
 }
 
-# Главное меню
 def get_keyboard(lang):
     return {
         "keyboard": [
@@ -33,7 +31,6 @@ def get_keyboard(lang):
         "resize_keyboard": True
     }
 
-# Автоматическое определение языка
 def detect_language(user_lang):
     return "ru" if user_lang.startswith("ru") else "en"
 
@@ -53,7 +50,6 @@ def webhook():
             if text in ['/start', 'start']:
                 send_message(chat_id, messages[lang]['welcome'], get_keyboard(lang))
 
-                # Отправка админу
                 requests.post(f"{BOT_URL}/sendMessage", json={
                     "chat_id": ADMIN_CHAT_ID,
                     "text": f"🔔 Новый пользователь нажал /start\nИмя: {message['from'].get('first_name')} @{message['from'].get('username', '')}"
