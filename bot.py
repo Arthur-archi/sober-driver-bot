@@ -62,15 +62,14 @@ def send_message(chat_id, text, reply_markup=None):
 
 
 def build_keyboard(lang: str):
-    # кнопки: локация, звонок, WhatsApp
     return {
         "keyboard": [
             [{"text": "📍 Отправить геолокацию", "request_location": True}],
-            [{"text": "📞 Позвонить", "url": "tel:+971582615619"}],
-            [{"text": "💬 WhatsApp", "url": "https://wa.me/971582615619"}],
+            [{"text": "📞 Позвонить"}],
+            [{"text": "💬 WhatsApp"}]
         ],
         "resize_keyboard": True,
-        "one_time_keyboard": True
+        "one_time_keyboard": False
     }
 
 
@@ -81,8 +80,7 @@ def index():
 
 @app.route("/set_webhook", methods=["GET"])
 def set_webhook():
-    # Замените на свой публичный URL Railway (у вас в Dashboard)
-    RAILWAY_URL = "https://sober-driver-dubai.up.railway.app"
+    RAILWAY_URL = "https://sober-driver-dubai.up.railway.app"  # Укажи свой Railway-домен
     hook = f"{RAILWAY_URL}/{BOT_TOKEN}"
     res = requests.get(f"{API_URL}/setWebhook?url={hook}")
     return res.json(), 200
@@ -98,18 +96,23 @@ def webhook():
         msg = data["message"]
         chat_id = msg["chat"]["id"]
         user_lang = detect_lang(msg["from"].get("language_code", ""))
-        # если прислали локацию
+
+        # Команда /start
+        if msg.get("text", "").startswith("/start"):
+            send_message(chat_id, START_TEXT[user_lang], reply_markup=build_keyboard(user_lang))
+            return {"ok": True}
+
+        # Геолокация
         if "location" in msg:
             link = f"https://www.google.com/maps?q={msg['location']['latitude']},{msg['location']['longitude']}"
             send_message(chat_id, THANKS_TEXT[user_lang])
-            # уведомляем админа
             admin_msg = (
                 f"📬 Новый заказ от @{msg['from'].get('username','—')}:\n"
                 f"📍 Геолокация: {link}"
             )
             send_message(ADMIN_ID, admin_msg)
         else:
-            # любое другое сообщение — пересылаем админу
+            # Другое сообщение — пересылаем админу
             user = msg["from"]
             forward = f"📩 Ответ от {user.get('first_name','')}:\n{msg.get('text','')}"
             send_message(ADMIN_ID, forward)
@@ -118,5 +121,4 @@ def webhook():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # обязательно 0.0.0.0, чтобы Railway мог принять внешние запросы
     app.run(host="0.0.0.0", port=port)
