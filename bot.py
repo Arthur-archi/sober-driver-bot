@@ -80,7 +80,7 @@ def index():
 
 @app.route("/set_webhook", methods=["GET"])
 def set_webhook():
-    RAILWAY_URL = "https://sober-driver-dubai.up.railway.app"  # Укажи свой Railway-домен
+    RAILWAY_URL = "https://worker-production-9f3f.up.railway.app"
     hook = f"{RAILWAY_URL}/{BOT_TOKEN}"
     res = requests.get(f"{API_URL}/setWebhook?url={hook}")
     return res.json(), 200
