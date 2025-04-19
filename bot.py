@@ -1,128 +1,109 @@
-import logging
-from telegram import (
-    Update,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-)
-from telegram.ext import (
-    ApplicationBuilder,
-    ContextTypes,
-    CommandHandler,
-    MessageHandler,
-    filters,
-)
-import os
+import requests
+from flask import Flask, request
 
-# ТВОИ ДАННЫЕ
-BOT_TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
-ADMIN_ID = 7465925576
+app = Flask(__name__)
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+BOT_TOKEN = '8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA'
+API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}'
+ADMIN_ID = '7465925576'
 
-# СООБЩЕНИЯ
-TEXTS = {
-    "ru": {
-        "start": (
-            "🚘 <b>Трезвый водитель Дубай</b>\n\n"
-            "📍 Мы доставим вас и ваш автомобиль в любую точку Дубая.\n"
-            "📲 Поделитесь геолокацией или нажмите кнопку для связи.\n\n"
-            "❓ Если возникли вопросы — напишите администратору: @Arthur_01"
-        ),
-        "thanks": (
-            "✅ Спасибо! Мы получили вашу геолокацию.\n\n"
-            "Пожалуйста, напишите:\n"
-            "1️⃣ Адрес назначения\n"
-            "2️⃣ Марку и модель авто\n"
-            "3️⃣ Номер машины (если есть)\n"
-            "4️⃣ Контактный номер\n"
-            "5️⃣ Пожелания (время, срочность и т.д.)"
-        ),
-        "received": "📩 Ваше сообщение отправлено. Мы скоро с вами свяжемся.",
+CALLBACK_BUTTONS = {
+    "share_location": {
+        "ru": "📍 Отправить геолокацию",
+        "en": "📍 Share location"
     },
-    "en": {
-        "start": (
-            "🚘 <b>Sober Driver Dubai</b>\n\n"
-            "📍 We will drive you and your car anywhere in Dubai.\n"
-            "📲 Share your location or use the buttons below to contact us.\n\n"
-            "❓ Have questions? Contact the admin: @Arthur_01"
-        ),
-        "thanks": (
-            "✅ Thank you! We have received your location.\n\n"
-            "Please send us:\n"
-            "1️⃣ Destination address\n"
-            "2️⃣ Car make and model\n"
-            "3️⃣ Car plate (if any)\n"
-            "4️⃣ Your contact number\n"
-            "5️⃣ Any notes (time, urgency, etc.)"
-        ),
-        "received": "📩 Your message has been forwarded. We will contact you soon.",
+    "call": {
+        "ru": "📞 Позвонить",
+        "en": "📞 Call"
     },
+    "whatsapp": {
+        "ru": "💬 WhatsApp",
+        "en": "💬 WhatsApp"
+    }
 }
 
-# Определение языка
-def get_lang(update: Update) -> str:
-    user_lang = update.effective_user.language_code
-    return "ru" if user_lang == "ru" else "en"
 
-# Старт
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = get_lang(update)
-    text = TEXTS[lang]["start"]
-    keyboard = [
-        [KeyboardButton("📍 Отправить геолокацию", request_location=True)],
-        [KeyboardButton("📞 Позвонить"), KeyboardButton("💬 WhatsApp")],
-    ]
-    await update.message.reply_text(
-        text=text,
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
-        parse_mode="HTML"
-    )
+def send_message(chat_id, text, reply_markup=None):
+    payload = {
+        'chat_id': chat_id,
+        'text': text,
+        'parse_mode': 'HTML'
+    }
+    if reply_markup:
+        payload['reply_markup'] = reply_markup
+    requests.post(f"{API_URL}/sendMessage", json=payload)
 
-# Геолокация
-async def location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    loc = update.message.location
-    lang = get_lang(update)
-    link = f"https://www.google.com/maps?q={loc.latitude},{loc.longitude}"
-    name = update.effective_user.first_name
 
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=TEXTS[lang]["thanks"]
-    )
+def detect_language(lang_code):
+    return 'ru' if lang_code.startswith('ru') else 'en'
 
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"📍 Новый заказ от {name}\n{link}"
-    )
 
-# Текстовые сообщения
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = get_lang(update)
-    name = update.effective_user.first_name
-    text = update.message.text
+def build_keyboard(language):
+    return {
+        "keyboard": [
+            [{"text": CALLBACK_BUTTONS["share_location"][language], "request_location": True}],
+            [{"text": CALLBACK_BUTTONS["call"][language], "url": "tel:+971582615619"}],
+            [{"text": CALLBACK_BUTTONS["whatsapp"][language], "url": "https://wa.me/971582615619"}],
+        ],
+        "resize_keyboard": True
+    }
 
-    if "Позвонить" in text or "Call" in text:
-        await update.message.reply_text("📞 Звоните: +971582615619")
 
-    elif "WhatsApp" in text:
-        await update.message.reply_text("💬 WhatsApp: https://wa.me/971582615619")
+def create_route_link(latitude, longitude):
+    return f"https://www.google.com/maps?q={latitude},{longitude}"
 
-    else:
-        await update.message.reply_text(TEXTS[lang]["received"])
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"📩 Сообщение от {name}:\n{text}"
-        )
 
-# Запуск
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.LOCATION, location))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-    app.run_polling()
+@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+def webhook():
+    data = request.get_json()
+
+    if 'message' in data:
+        message = data['message']
+        chat_id = message['chat']['id']
+        user_lang = detect_language(message['from'].get('language_code', 'en'))
+
+        if 'location' in message:
+            lat = message['location']['latitude']
+            lon = message['location']['longitude']
+            route_link = create_route_link(lat, lon)
+
+            confirmation_text = {
+                "ru": f"✅ Ваш заказ принят!\n📍 <a href='{route_link}'>Маршрут</a>\n⏳ Ожидайте водителя!",
+                "en": f"✅ Your order has been accepted!\n📍 <a href='{route_link}'>Route</a>\n⏳ Please wait for the driver!"
+            }
+
+            admin_text = f"📬 Новый заказ!\n🌍 <a href='{route_link}'>Геолокация клиента</a>\n👤 @{message['from'].get('username', 'Без username')}"
+            send_message(chat_id, confirmation_text[user_lang])
+            send_message(ADMIN_ID, admin_text)
+
+        else:
+            welcome_text = {
+                "ru": (
+                    "👋 Добро пожаловать в сервис 'Трезвый водитель Дубай'!\n\n"
+                    "🚗 Трезвый водитель Дубай\n📍 Мы доставим вас и ваш автомобиль в любую точку Дубая.\n"
+                    "📲 Поделитесь геолокацией или нажмите кнопку для связи.\n"
+                    "❓ Если возникли вопросы — напишите администратору: @Arthur_01"
+                ),
+                "en": (
+                    "👋 Welcome to 'Sober Driver Dubai' service!\n\n"
+                    "🚗 Sober Driver Dubai\n📍 We will drive you and your car anywhere in Dubai.\n"
+                    "📲 Share your location or click a button below to contact us.\n"
+                    "❓ For questions — contact the admin: @Arthur_01"
+                )
+            }
+
+            send_message(chat_id, welcome_text[user_lang], reply_markup=build_keyboard(user_lang))
+
+    return {'ok': True}
+
+
+# Установка webhook (выполняется один раз локально или вручную)
+@app.route("/set_webhook", methods=["GET"])
+def set_webhook():
+    webhook_url = f"https://sober-driver-dubai.up.railway.app/{BOT_TOKEN}"
+    response = requests.get(f"{API_URL}/setWebhook?url={webhook_url}")
+    return response.json()
+
 
 if __name__ == "__main__":
-    main()
+    app.run()
