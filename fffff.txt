@@ -1,2 +1,6 @@
 cd Desktop\SoberDriverBot
 python bot.py
+
+
+git commit --allow-empty -m "Перезапуск Railway вручную"
+git push origin main
