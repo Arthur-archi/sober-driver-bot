@@ -41,7 +41,8 @@ def send_message(chat_id, text, reply_markup=None):
 def get_language(user_id):
     return user_languages.get(user_id, 'ru')
 
-@app.route(f'/{TOKEN}', methods=['POST'])
+# ВНИМАНИЕ: жёстко указанный маршрут
+@app.route('/8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA', methods=['POST'])
 def webhook():
     update = request.get_json()
 
@@ -86,3 +87,4 @@ def index():
 
 if __name__ == '__main__':
     app.run()
+
