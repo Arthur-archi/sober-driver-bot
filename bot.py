@@ -3,37 +3,43 @@ import requests
 
 app = Flask(__name__)
 
-BOT_TOKEN = '8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA'
+TOKEN = '8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA'
 ADMIN_ID = '7465925576'
-TELEGRAM_API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}'
 
-def send_message(chat_id, text):
-    url = f"{TELEGRAM_API_URL}/sendMessage"
-    payload = {
-        'chat_id': chat_id,
-        'text': text
-    }
-    requests.post(url, json=payload)
+URL = f'https://api.telegram.org/bot{TOKEN}/sendMessage'
 
-@app.route('/', methods=['GET'])
-def index():
-    return '✅ Webhook работает (GET)', 200
+# Определение языка по Telegram-настройкам
+def detect_language(lang_code):
+    if lang_code.startswith('ru'):
+        return 'ru'
+    return 'en'
 
 @app.route('/', methods=['POST'])
 def webhook():
     data = request.get_json()
 
-    if "message" in data:
-        chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text", "")
+    if 'message' in data:
+        chat_id = data['message']['chat']['id']
+        lang_code = data['message']['from'].get('language_code', 'en')
+        language = detect_language(lang_code)
 
-        # Ответ клиенту
-        send_message(chat_id, "Спасибо за сообщение! Мы скоро свяжемся с вами.")
+        # Сообщения для пользователя
+        if language == 'ru':
+            text = "🚘 Добро пожаловать в сервис 'Трезвый водитель – Дубай'!\n\n📍 Отправьте геолокацию\n📞 Позвонить: +971582615619\n💬 WhatsApp: wa.me/971582615619"
+        else:
+            text = "🚘 Welcome to 'Sober Driver – Dubai'!\n\n📍 Send your location\n📞 Call: +971582615619\n💬 WhatsApp: wa.me/971582615619"
 
-        # Уведомление админу
-        send_message(ADMIN_ID, f"📩 Новое сообщение от клиента:\nID: {chat_id}\nТекст: {text}")
+        requests.post(URL, json={"chat_id": chat_id, "text": text})
 
-    return '✅ OK', 200
+        # Уведомление администратору
+        user_name = data['message']['from'].get('username', 'Без имени')
+        message_text = data['message'].get('text', '[нет текста]')
+        admin_text = f"📨 Новый заказ от @{user_name}\n📍 Сообщение: {message_text}"
+        requests.post(URL, json={"chat_id": ADMIN_ID, "text": admin_text})
 
-# 🚫 Не нужно запускать Flask вручную!
-# Railway запускает gunicorn, этот блок удалён
+    return {'ok': True}
+
+@app.route('/', methods=['GET'])
+def index():
+    return 'Бот работает!'
+
