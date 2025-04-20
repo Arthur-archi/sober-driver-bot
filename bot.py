@@ -146,13 +146,12 @@ async def main():
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    # 🚀 Запускаем Telegram бота
     await app.run_polling()
 
 
-if __name__ == "__main__":
-    import asyncio
+import asyncio
 
-    # Используем уже запущенный event loop
-    loop = asyncio.get_event_loop()
+if __name__ == "__main__":
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     loop.run_until_complete(main())
