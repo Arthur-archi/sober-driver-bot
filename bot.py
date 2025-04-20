@@ -1,22 +1,18 @@
 import json
 import logging
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
-
 from telegram import (
     Update,
     KeyboardButton,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
 )
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    filters,
     ContextTypes,
+    filters,
 )
 
 # === НАСТРОЙКИ ===
@@ -76,10 +72,8 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     coords = f"{location.latitude}, {location.longitude}"
     map_url = f"https://www.google.com/maps?q={coords}"
 
-    # Подтверждение пользователю
     await update.message.reply_text(TEXTS[lang]["confirm"], reply_markup=ReplyKeyboardRemove())
 
-    # Уведомление админу
     notify = TEXTS[lang]["admin_notify"].format(
         name=user.full_name,
         location=coords,
@@ -87,7 +81,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await context.bot.send_message(chat_id=ADMIN_ID, text=notify)
 
-    # Сохраняем заказ в файл
     save_order({
         "user_id": user.id,
         "name": user.full_name,
@@ -125,33 +118,23 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(TEXTS[lang]["send_location"])
 
 
-def run_webhook(app):
-    class SimpleHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            self.wfile.write(b"Bot is running.")
+# === ЗАПУСК ===
 
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    logger.info(f"Starting server on port {port}")
-    server.serve_forever()
-
+from telegram.ext import Application
+import asyncio
 
 async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    await app.run_polling()
-
-
-import asyncio
+    await app.initialize()
+    await app.start()
+    logger.info("Бот запущен")
+    await app.updater.start_polling()
+    await app.updater.idle()
 
 if __name__ == "__main__":
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(main())
+    asyncio.run(main())
