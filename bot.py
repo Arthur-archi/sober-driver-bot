@@ -124,17 +124,17 @@ from telegram.ext import Application
 import asyncio
 
 async def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    await app.initialize()
-    await app.start()
     logger.info("Бот запущен")
-    await app.updater.start_polling()
-    await app.updater.idle()
+    await app.run_polling()
+
 
 if __name__ == "__main__":
+    import asyncio
+
     asyncio.run(main())
