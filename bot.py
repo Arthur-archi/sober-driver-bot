@@ -120,21 +120,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === ЗАПУСК ===
 
-from telegram.ext import Application
-import asyncio
-
-async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-
-    logger.info("Бот запущен")
-    await app.run_polling()
-
-
 if __name__ == "__main__":
     import asyncio
+
+    async def main():
+        app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+
+        logger.info("✅ Бот запущен")
+        await app.run_polling()
 
     asyncio.run(main())
