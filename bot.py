@@ -5,10 +5,13 @@ import time
 
 # 🔑 Токен и ID админа
 TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
-ADMIN_ID = 7465925576  # Telegram ID администратора
+ADMIN_ID = 7465925576  # Telegram ID администратора (Artur)
 
 API_URL = f"https://api.telegram.org/bot{TOKEN}/"
 ctx = ssl.create_default_context()
+
+# 🧠 Память для выбора языка
+user_languages = {}
 
 def api(method, data=None):
     url = API_URL + method
@@ -30,7 +33,8 @@ def send_message(chat_id, text, reply_markup=None):
     api("sendMessage", data)
 
 def get_language_code(message):
-    return message.get("from", {}).get("language_code", "ru")
+    chat_id = message["chat"]["id"]
+    return user_languages.get(chat_id, "ru")
 
 def get_welcome_message(lang):
     if lang == "ru":
@@ -38,14 +42,18 @@ def get_welcome_message(lang):
             "🚘 <b>Трезвый водитель Дубай</b>\n\n"
             "📍 Мы доставим вас и ваш автомобиль в любую точку Дубая.\n"
             "📲 Нажмите кнопку ниже, чтобы поделиться геолокацией или связаться с нами.\n\n"
-            "❓Если что-то непонятно — напишите администратору: @Arthur_01"
+            "📞 Номер: +971582615619\n"
+            "💬 WhatsApp: https://wa.me/971582615619\n"
+            "❓ Вопросы? Напишите: @Arthur_01"
         )
     else:
         return (
             "🚘 <b>Sober Driver Dubai</b>\n\n"
             "📍 We will take you and your car anywhere in Dubai.\n"
             "📲 Tap a button below to share your location or contact us.\n\n"
-            "❓If you have questions — message the admin: @Arthur_01"
+            "📞 Phone: +971582615619\n"
+            "💬 WhatsApp: https://wa.me/971582615619\n"
+            "❓ Questions? Message us: @Arthur_01"
         )
 
 def get_buttons(lang):
@@ -53,44 +61,60 @@ def get_buttons(lang):
         return {
             "keyboard": [
                 [{"text": "📍 Отправить геолокацию", "request_location": True}],
-                [{"text": "📞 Позвонить"}, {"text": "💬 WhatsApp"}],
+                [{"text": "📞 Позвонить"}, {"text": "💬 WhatsApp"}]
             ],
             "resize_keyboard": True,
-            "one_time_keyboard": False,
+            "one_time_keyboard": False
         }
     else:
         return {
             "keyboard": [
                 [{"text": "📍 Share Location", "request_location": True}],
-                [{"text": "📞 Call"}, {"text": "💬 WhatsApp"}],
+                [{"text": "📞 Call"}, {"text": "💬 WhatsApp"}]
             ],
             "resize_keyboard": True,
-            "one_time_keyboard": False,
+            "one_time_keyboard": False
         }
 
 def handle_command(chat_id, text, lang):
+    if text == "/start":
+        reply_markup = {
+            "keyboard": [[{"text": "🇷🇺 Русский"}, {"text": "🇬🇧 English"}]],
+            "resize_keyboard": True,
+            "one_time_keyboard": True
+        }
+        send_message(chat_id, "🌐 Выберите язык / Choose your language:", reply_markup)
+        return
+
     if lang == "ru":
         responses = {
-            "/start": get_welcome_message(lang),
             "/help": "ℹ️ Чтобы заказать водителя, нажмите кнопку 'Отправить геолокацию'.",
             "/order": "🚗 Ваша заявка принята! Мы уже едем.",
             "/info": "📄 Мы работаем круглосуточно по всему Дубаю.",
-            "/contact": "📞 Номер: +971582615619\nWhatsApp: wa.me/971582615619",
+            "/contact": "📞 Номер: +971582615619\n💬 WhatsApp: https://wa.me/971582615619"
         }
     else:
         responses = {
-            "/start": get_welcome_message(lang),
             "/help": "ℹ️ To request a driver, click 'Share Location' below.",
             "/order": "🚗 Your order has been received! We're on the way.",
             "/info": "📄 We operate 24/7 all across Dubai.",
-            "/contact": "📞 Phone: +971582615619\nWhatsApp: wa.me/971582615619",
+            "/contact": "📞 Phone: +971582615619\n💬 WhatsApp: https://wa.me/971582615619"
         }
 
     response = responses.get(text)
     if response:
-        send_message(chat_id, f"📩 Ответ от Artur:\n{response}")
+        send_message(chat_id, f"📩 {response}")
 
 def handle_text(chat_id, text, lang):
+    if text == "🇷🇺 Русский":
+        user_languages[chat_id] = "ru"
+        send_message(chat_id, get_welcome_message("ru"), get_buttons("ru"))
+        return
+    elif text == "🇬🇧 English":
+        user_languages[chat_id] = "en"
+        send_message(chat_id, get_welcome_message("en"), get_buttons("en"))
+        return
+
     text = text.lower()
     if "позвонить" in text or "call" in text:
         send_message(chat_id, "📞 +971582615619")
@@ -112,15 +136,11 @@ def handle_location(chat_id, location, lang):
     longitude = location["longitude"]
     maps_url = f"https://www.google.com/maps?q={latitude},{longitude}"
     message = (
-        f"📍 Спасибо! Мы получили вашу геолокацию.\n"
-        f"<a href='{maps_url}'>Открыть в Google Maps</a>"
+        f"📍 Спасибо! Мы получили вашу геолокацию.\n<a href='{maps_url}'>Открыть в Google Maps</a>"
         if lang == "ru" else
-        f"📍 Thank you! We received your location.\n"
-        f"<a href='{maps_url}'>Open in Google Maps</a>"
+        f"📍 Thank you! We received your location.\n<a href='{maps_url}'>Open in Google Maps</a>"
     )
     send_message(chat_id, message)
-
-    # Отправка администратору
     send_message(ADMIN_ID, f"📍 Новый заказ!\nКоординаты: {latitude}, {longitude}\n{maps_url}")
 
 def main():
@@ -146,12 +166,6 @@ def main():
 
             elif "location" in message:
                 handle_location(chat_id, message["location"], lang)
-
-            elif "new_chat_member" in message:
-                send_message(chat_id, get_welcome_message(lang), get_buttons(lang))
-
-            elif "chat" in message:
-                send_message(chat_id, get_welcome_message(lang), get_buttons(lang))
 
         time.sleep(1)
 
