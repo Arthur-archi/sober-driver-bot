@@ -146,8 +146,9 @@ async def main():
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    # Запуск webhook-сервера
-    run_webhook(app)
+    # 🔥 Запуск Telegram-бота
+    await app.run_polling()
+
 
 if __name__ == "__main__":
     import asyncio
