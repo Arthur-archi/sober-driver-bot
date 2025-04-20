@@ -118,18 +118,21 @@ def handle_text(chat_id, text, lang):
     text = text.lower()
     if "позвонить" in text or "call" in text:
         send_message(chat_id, "📞 +971582615619")
+        return  # 👈 добавим return здесь
     elif "whatsapp" in text:
         send_message(chat_id, "💬 WhatsApp: https://wa.me/971582615619")
-    else:
-        message = (
-            "🤖 Спасибо! Мы получили ваше сообщение.\n\n"
-            "📍 Чтобы сделать заказ, нажмите кнопку “Отправить геолокацию” ниже\n"
-            "или напишите нам напрямую: @Arthur_01"
-            if lang == "ru" else
-            "🤖 Thank you! We got your message.\n\n"
-            "📍 To make a request, tap “Share Location” below or contact us at: @Arthur_01"
-        )
-        send_message(chat_id, message)
+        return  # 👈 и здесь тоже
+
+    message = (
+        "🤖 Спасибо! Мы получили ваше сообщение.\n\n"
+        "📍 Чтобы сделать заказ, нажмите кнопку “Отправить геолокацию” ниже\n"
+        "или напишите нам напрямую: @Arthur_01"
+        if lang == "ru" else
+        "🤖 Thank you! We got your message.\n\n"
+        "📍 To make a request, tap “Share Location” below or contact us at: @Arthur_01"
+    )
+    send_message(chat_id, message)
+
 
 def handle_location(chat_id, location, lang):
     latitude = location["latitude"]
