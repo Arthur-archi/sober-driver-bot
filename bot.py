@@ -1,18 +1,20 @@
+from flask import Flask, request
 import json
 import ssl
 import urllib.request
-import time
+
+app = Flask(__name__)
 
 # 🔑 Токен и ID админа
 TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
-ADMIN_ID = 7465925576  # Telegram ID администратора (Artur)
-
+ADMIN_ID = 7465925576
 API_URL = f"https://api.telegram.org/bot{TOKEN}/"
+WEBHOOK_URL = "https://worker-production-9f3f.up.railway.app/webhook"
 ctx = ssl.create_default_context()
 
-# 🧠 Память для выбора языка
-user_languages = {}
+user_languages = {}  # мини-CRM: язык по chat_id
 
+# 🧠 Telegram API запрос
 def api(method, data=None):
     url = API_URL + method
     if data:
@@ -23,19 +25,18 @@ def api(method, data=None):
     with urllib.request.urlopen(req, context=ctx) as r:
         return json.load(r)
 
-def get_updates(offset=None):
-    return api("getUpdates", {"offset": offset, "timeout": 30})["result"]
-
+# 📩 Отправка сообщения
 def send_message(chat_id, text, reply_markup=None):
     data = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     if reply_markup:
         data["reply_markup"] = json.dumps(reply_markup)
     api("sendMessage", data)
 
-def get_language_code(message):
-    chat_id = message["chat"]["id"]
+# 🌍 Определение языка
+def get_language_code(chat_id):
     return user_languages.get(chat_id, "ru")
 
+# 👋 Приветствие
 def get_welcome_message(lang):
     if lang == "ru":
         return (
@@ -56,6 +57,7 @@ def get_welcome_message(lang):
             "❓ Questions? Message us: @Arthur_01"
         )
 
+# ⌨️ Кнопки
 def get_buttons(lang):
     if lang == "ru":
         return {
@@ -76,6 +78,7 @@ def get_buttons(lang):
             "one_time_keyboard": False
         }
 
+# 💬 Команды
 def handle_command(chat_id, text, lang):
     if text == "/start":
         reply_markup = {
@@ -109,7 +112,7 @@ def handle_command(chat_id, text, lang):
     else:
         send_message(chat_id, unknown)
 
-
+# 💬 Сообщения
 def handle_text(chat_id, text, lang):
     if text == "🇷🇺 Русский":
         user_languages[chat_id] = "ru"
@@ -123,12 +126,12 @@ def handle_text(chat_id, text, lang):
     text = text.lower()
     if "позвонить" in text or "call" in text:
         send_message(chat_id, "📞 +971582615619")
-        return  # 👈 добавим return здесь
+        return
     elif "whatsapp" in text:
         send_message(chat_id, "💬 WhatsApp: https://wa.me/971582615619")
-        return  # 👈 и здесь тоже
+        return
 
-    message = (
+    msg = (
         "🤖 Спасибо! Мы получили ваше сообщение.\n\n"
         "📍 Чтобы сделать заказ, нажмите кнопку “Отправить геолокацию” ниже\n"
         "или напишите нам напрямую: @Arthur_01"
@@ -136,9 +139,9 @@ def handle_text(chat_id, text, lang):
         "🤖 Thank you! We got your message.\n\n"
         "📍 To make a request, tap “Share Location” below or contact us at: @Arthur_01"
     )
-    send_message(chat_id, message)
+    send_message(chat_id, msg)
 
-
+# 📍 Геолокация
 def handle_location(chat_id, location, lang):
     latitude = location["latitude"]
     longitude = location["longitude"]
@@ -151,31 +154,33 @@ def handle_location(chat_id, location, lang):
     send_message(chat_id, message)
     send_message(ADMIN_ID, f"📍 Новый заказ!\nКоординаты: {latitude}, {longitude}\n{maps_url}")
 
-def main():
-    offset = None
-    print("✅ Бот запущен")
-    while True:
-        updates = get_updates(offset)
-        for update in updates:
-            offset = update["update_id"] + 1
-            message = update.get("message")
-            if not message:
-                continue
+# 📬 Обработка входящих
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    update = request.get_json()
+    message = update.get("message")
+    if not message:
+        return "ok"
 
-            chat_id = message["chat"]["id"]
-            lang = get_language_code(message)
+    chat_id = message["chat"]["id"]
+    lang = get_language_code(chat_id)
 
-            if "text" in message:
-                text = message["text"]
-                if text.startswith("/"):
-                    handle_command(chat_id, text, lang)
-                else:
-                    handle_text(chat_id, text, lang)
+    if "text" in message:
+        text = message["text"]
+        if text.startswith("/"):
+            handle_command(chat_id, text, lang)
+        else:
+            handle_text(chat_id, text, lang)
 
-            elif "location" in message:
-                handle_location(chat_id, message["location"], lang)
+    elif "location" in message:
+        handle_location(chat_id, message["location"], lang)
 
-        time.sleep(1)
+    return "ok"
+
+# 🔧 Установка webhook при запуске
+def set_webhook():
+    api("setWebhook", {"url": WEBHOOK_URL})
 
 if __name__ == "__main__":
-    main()
+    set_webhook()
+    app.run(host="0.0.0.0", port=8000)
