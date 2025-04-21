@@ -93,6 +93,7 @@ def handle_command(chat_id, text, lang):
             "/info": "📄 Мы работаем круглосуточно по всему Дубаю.",
             "/contact": "📞 Номер: +971582615619\n💬 WhatsApp: https://wa.me/971582615619"
         }
+        unknown = "❌ Неизвестная команда. Пожалуйста, нажмите /start, чтобы начать."
     else:
         responses = {
             "/help": "ℹ️ To request a driver, click 'Share Location' below.",
@@ -100,10 +101,14 @@ def handle_command(chat_id, text, lang):
             "/info": "📄 We operate 24/7 all across Dubai.",
             "/contact": "📞 Phone: +971582615619\n💬 WhatsApp: https://wa.me/971582615619"
         }
+        unknown = "❌ Unknown command. Please press /start to begin."
 
     response = responses.get(text)
     if response:
         send_message(chat_id, f"📩 {response}")
+    else:
+        send_message(chat_id, unknown)
+
 
 def handle_text(chat_id, text, lang):
     if text == "🇷🇺 Русский":
