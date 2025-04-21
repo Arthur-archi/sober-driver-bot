@@ -1,16 +1,11 @@
-from flask import Flask, request
-import json
-import ssl
-import urllib.request
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-app = Flask(__name__)
+TOKEN = os.getenv("TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-# 🔑 Токен и ID админа
-TOKEN = "8099391152:AAG4UDErsqzn7cg7psJgcZEX_Hbb_5N8GcA"
-ADMIN_ID = 7465925576
-API_URL = f"https://api.telegram.org/bot{TOKEN}/"
-WEBHOOK_URL = "https://worker-production-9f3f.up.railway.app/webhook"
-ctx = ssl.create_default_context()
 
 user_languages = {}  # мини-CRM: язык по chat_id
 
